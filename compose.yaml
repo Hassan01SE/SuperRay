@@ -1,0 +1,60 @@
+# Local dev stack (DEBUG on, plain http). See README.md.
+
+name: superray
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: superray
+      POSTGRES_USER: superray
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-superray-local}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superray -d superray"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./SuperRay-Backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DJANGO_DEBUG: "true"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in .env (see .env.example)}
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      CORS_ALLOWED_ORIGINS: http://localhost:${FRONTEND_PORT:-3000}
+      POSTGRES_HOST: db
+      POSTGRES_DB: superray
+      POSTGRES_USER: superray
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-superray-local}
+      POSTGRES_SSLMODE: disable
+      INFERENCE_SERVICE_URL: ${INFERENCE_SERVICE_URL:-}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - media-data:/app/media
+
+  frontend:
+    build:
+      context: ./SuperRay-Frontend
+      args:
+        # browser -> host port
+        NEXT_PUBLIC_BACKEND_URL: http://localhost:${BACKEND_PORT:-8000}/api/
+        NEXT_PUBLIC_DEMO_MODE: ${DEMO_MODE:-false}
+    depends_on:
+      - backend
+    environment:
+      NEXTAUTH_URL: http://localhost:${FRONTEND_PORT:-3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET in .env (see .env.example)}
+      # next server -> compose network
+      INTERNAL_BACKEND_URL: http://backend:8000/api/
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+
+volumes:
+  postgres-data:
+  media-data:

@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+db.sqlite3
+media/
+staticfiles/
+env/
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+Dockerfile
+.dockerignore
